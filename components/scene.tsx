@@ -129,12 +129,12 @@ function pieceHalf(kind: RawKind, orient: Orient): [number, number, number] {
 function Room() {
   return (
     <>
-      <ambientLight intensity={0.55} color="#fff3e3" />
-      <pointLight position={[8, 12, 0]} intensity={10} distance={60} decay={2} color="#fff0d8" />
+      <ambientLight intensity={0.7} color="#ffffff" />
+      <pointLight position={[8, 12, 0]} intensity={10} distance={60} decay={2} color="#ffffff" />
       <directionalLight
         position={[6, 16, 9]}
         intensity={1.7}
-        color="#fff0d8"
+        color="#ffffff"
         castShadow
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
@@ -148,16 +148,12 @@ function Room() {
         shadow-normalBias={0.04}
       />
 
-      {/* the pale tabletop */}
+      {/* white-studio ground: a shadow-only material lets the pure-white
+          background show through, so floor and sky are one seamless white and
+          only the soft grey shadows remain */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[120, 120]} />
-        <meshStandardMaterial color="#c7c0b1" roughness={0.95} metalness={0} />
-      </mesh>
-
-      {/* the tray wall as a backdrop behind the lane (the camera looks along -x) */}
-      <mesh position={[-13, 8, -1]} receiveShadow>
-        <boxGeometry args={[1.2, 16, 90]} />
-        <meshStandardMaterial color="#b3ab9b" roughness={0.92} metalness={0} />
+        <planeGeometry args={[240, 240]} />
+        <shadowMaterial opacity={0.28} color="#000000" />
       </mesh>
 
       {/* physical floor */}
@@ -173,35 +169,52 @@ function Room() {
 /* ------------------------------------------------------------------ */
 // Side-on camera: looks straight down the -x axis so the lane reads like a 2D
 // stage — slingshot screen-left, structures screen-right. Distance is derived
-// from the aspect ratio so the whole lane always fits.
-function CameraRig({ followRef }: { followRef: React.MutableRefObject<THREE.Vector3 | null> }) {
+// from the aspect ratio so the whole lane always fits. It opens zoomed in on
+// the painted blocks waiting at the sling, and glides out on the first touch.
+const INTRO_LOOK = new THREE.Vector3(0, 1.2, 8.2)
+function CameraRig({
+  followRef,
+  introRef,
+}: {
+  followRef: React.MutableRefObject<THREE.Vector3 | null>
+  introRef: React.MutableRefObject<boolean>
+}) {
   const camera = useThree((s) => s.camera)
   const size = useThree((s) => s.size)
-  const look = useRef(new THREE.Vector3(0, 2.8, -0.8))
+  const look = useRef(INTRO_LOOK.clone())
 
   useEffect(() => {
     const cam = camera as THREE.PerspectiveCamera
-    const a = size.width / size.height
-    const halfV = Math.tan((CAM_FOV / 2) * (Math.PI / 180))
-    const dist = THREE.MathUtils.clamp(HALF_W / (halfV * a), 14, 62)
-    cam.position.set(dist, 3.6, -0.8)
     cam.fov = CAM_FOV
-    cam.aspect = a
+    cam.aspect = size.width / size.height
     cam.updateProjectionMatrix()
-    cam.lookAt(look.current)
   }, [camera, size])
 
   useFrame((_, dt) => {
-    const target = followRef.current
-    const goal = target
-      ? new THREE.Vector3(
-          0,
-          THREE.MathUtils.clamp(target.y * 0.3, 0.5, 2.2) + 1.4,
-          THREE.MathUtils.clamp(target.z * 0.5, -4, 2.5),
-        )
-      : new THREE.Vector3(0, 2.8, -0.8)
+    const a = size.width / size.height
+    const halfV = Math.tan((CAM_FOV / 2) * (Math.PI / 180))
+    let posGoal: THREE.Vector3
+    let lookGoal: THREE.Vector3
+    if (introRef.current) {
+      // close-up on the ammo line-up, framed centre-screen
+      const dist = THREE.MathUtils.clamp(3.4 / (halfV * Math.min(a, 1.6)), 4, 26)
+      posGoal = new THREE.Vector3(dist, 1.7, INTRO_LOOK.z)
+      lookGoal = INTRO_LOOK
+    } else {
+      const dist = THREE.MathUtils.clamp(HALF_W / (halfV * a), 14, 62)
+      posGoal = new THREE.Vector3(dist, 3.6, -0.8)
+      const target = followRef.current
+      lookGoal = target
+        ? new THREE.Vector3(
+            0,
+            THREE.MathUtils.clamp(target.y * 0.3, 0.5, 2.2) + 1.4,
+            THREE.MathUtils.clamp(target.z * 0.5, -4, 2.5),
+          )
+        : new THREE.Vector3(0, 2.8, -0.8)
+    }
     const k = 1 - Math.exp(-3 * dt)
-    look.current.lerp(goal, k)
+    camera.position.lerp(posGoal, k)
+    look.current.lerp(lookGoal, k)
     camera.lookAt(look.current)
   })
   return null
@@ -527,6 +540,7 @@ function GameWorld({ level, onHud, onWin, onLose }: SceneProps) {
   const loseTime = useRef(0)
   const endedRef = useRef(false)
   const followRef = useRef<THREE.Vector3 | null>(null)
+  const introRef = useRef(true) // opens on the ammo close-up until first touch
   const knotsAliveRef = useRef(knotsAlive)
   knotsAliveRef.current = knotsAlive
 
@@ -748,6 +762,7 @@ function GameWorld({ level, onHud, onWin, onLose }: SceneProps) {
   useEffect(() => {
     const el = gl.domElement
     const onDown = () => {
+      introRef.current = false // first touch: glide out to the full stage
       // dev aid: record why a tap did / didn't trigger the power
       ;(window as unknown as { __tap?: unknown }).__tap = {
         aiming: aiming.current,
@@ -882,7 +897,7 @@ function GameWorld({ level, onHud, onWin, onLose }: SceneProps) {
   return (
     <>
       <Room />
-      <CameraRig followRef={followRef} />
+      <CameraRig followRef={followRef} introRef={introRef} />
       <SlingFork />
       <Band tip={PRONG_L} />
       <Band tip={PRONG_R} />
@@ -960,13 +975,14 @@ export default function Scene(props: SceneProps) {
       shadows
       dpr={[1, 1.75]}
       gl={{ antialias: true, preserveDrawingBuffer: false, powerPreference: "high-performance" }}
-      camera={{ position: [30, 3.6, -0.8], fov: CAM_FOV, near: 0.1, far: 200 }}
+      camera={{ position: [7, 1.7, 8.2], fov: CAM_FOV, near: 0.1, far: 200 }}
       onCreated={({ gl }) => {
         gl.toneMapping = THREE.NoToneMapping
       }}
       style={{ touchAction: "none" }}
     >
-      <color attach="background" args={["#f6f2ea"]} />
+      {/* HDR white so the sky stays 100% white through ACES tone mapping */}
+      <color attach="background" args={[6, 6, 6]} />
       <Physics gravity={[0, -G, 0]} timeStep={1 / 60} numSolverIterations={8} maxCcdSubsteps={2} interpolate>
         <Suspense fallback={null}>
           <GameWorld {...props} />
@@ -974,7 +990,7 @@ export default function Scene(props: SceneProps) {
       </Physics>
       <EffectComposer multisampling={0}>
         <N8AO aoRadius={0.8} intensity={1.3} distanceFalloff={1} halfRes color="#1c160e" />
-        <Vignette offset={0.35} darkness={0.24} />
+        <Vignette offset={0.3} darkness={0.08} />
         <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
         <SMAA />
       </EffectComposer>
