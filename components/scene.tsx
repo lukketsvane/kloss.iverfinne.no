@@ -203,16 +203,22 @@ function CameraRig({
       posGoal = new THREE.Vector3(dist, 2.0, INTRO_LOOK.z)
       lookGoal = INTRO_LOOK
     } else {
-      const dist = THREE.MathUtils.clamp(HALF_W / (halfV * a), 14, 62)
-      posGoal = new THREE.Vector3(dist, 3.6, -0.8)
+      // wide screens fit the whole lane; narrow (portrait) screens keep a
+      // sensible zoom and PAN instead – resting on the sling for the next
+      // shot, following the block toward the target once it flies
+      const dist = THREE.MathUtils.clamp(HALF_W / (halfV * a), 14, 34)
+      const halfVisible = dist * halfV * a // lane half-width actually on screen
+      const idleZ = Math.max(-0.8, ANCHOR.z + 2.4 - halfVisible)
+      posGoal = new THREE.Vector3(dist, 3.6, 0)
       const target = followRef.current
       lookGoal = target
         ? new THREE.Vector3(
             0,
             THREE.MathUtils.clamp(target.y * 0.3, 0.5, 2.2) + 1.4,
-            THREE.MathUtils.clamp(target.z * 0.5, -4, 2.5),
+            THREE.MathUtils.clamp(target.z * 0.5, -4, idleZ),
           )
-        : new THREE.Vector3(0, 2.8, -0.8)
+        : new THREE.Vector3(0, 2.8, idleZ)
+      posGoal.z = lookGoal.z // keep the view square-on while panning
     }
     // the position eases slower than the gaze so the reveal feels like a
     // gentle pull-back rather than a cut
