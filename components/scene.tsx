@@ -40,12 +40,18 @@ import { playBoom, playImpact, playPop, playWhoosh, primeBlocks } from "@/lib/im
 /*  Tuning                                                             */
 /* ------------------------------------------------------------------ */
 const G = 25 // same gravity feel as kl.oss.ete
-const ANCHOR = new THREE.Vector3(0, 1.7, 7) // where the loaded block hangs
+const ANCHOR = new THREE.Vector3(0, 1.9, 7) // where the loaded block hangs
 const PULL_MAX = 2.6 // how far back the sling stretches
-const V_MAX = 19 // horizontal launch speed at full pull
-const LOFT = 0.55 // upward speed as a fraction of horizontal speed
+const V_MAX = 21 // launch speed at full pull
+const K = V_MAX / PULL_MAX // pull length -> launch speed
 const KNOCK_SPEED = 3.0 // impact speed that defeats a knot
 const CAM_FOV = 40
+const HALF_W = 10.8 // half of the lane width the side camera keeps in frame
+
+// The whole game plays in the x = 0 plane, viewed side-on like a 2D game:
+// bodies may only slide in y/z and rotate about x.
+const LOCK_T: [boolean, boolean, boolean] = [false, true, true]
+const LOCK_R: [boolean, boolean, boolean] = [true, false, false]
 
 export type HudState = {
   shotIdx: number
@@ -124,9 +130,9 @@ function Room() {
   return (
     <>
       <ambientLight intensity={0.55} color="#fff3e3" />
-      <pointLight position={[0, 12, -2]} intensity={10} distance={60} decay={2} color="#fff0d8" />
+      <pointLight position={[8, 12, 0]} intensity={10} distance={60} decay={2} color="#fff0d8" />
       <directionalLight
-        position={[-7, 16, 6]}
+        position={[6, 16, 9]}
         intensity={1.7}
         color="#fff0d8"
         castShadow
@@ -148,18 +154,10 @@ function Room() {
         <meshStandardMaterial color="#c7c0b1" roughness={0.95} metalness={0} />
       </mesh>
 
-      {/* distant tray walls closing the room like kl.oss.ete's box */}
-      <mesh position={[0, 6, -26]} receiveShadow>
-        <boxGeometry args={[80, 12, 1.2]} />
+      {/* the tray wall as a backdrop behind the lane (the camera looks along -x) */}
+      <mesh position={[-13, 8, -1]} receiveShadow>
+        <boxGeometry args={[1.2, 16, 90]} />
         <meshStandardMaterial color="#b3ab9b" roughness={0.92} metalness={0} />
-      </mesh>
-      <mesh position={[-24, 6, 0]} receiveShadow>
-        <boxGeometry args={[1.2, 12, 80]} />
-        <meshStandardMaterial color="#aca390" roughness={0.92} metalness={0} />
-      </mesh>
-      <mesh position={[24, 6, 0]} receiveShadow>
-        <boxGeometry args={[1.2, 12, 80]} />
-        <meshStandardMaterial color="#aca390" roughness={0.92} metalness={0} />
       </mesh>
 
       {/* physical floor */}
@@ -173,16 +171,20 @@ function Room() {
 /* ------------------------------------------------------------------ */
 /*  Camera – behind the sling, easing toward the action                */
 /* ------------------------------------------------------------------ */
+// Side-on camera: looks straight down the -x axis so the lane reads like a 2D
+// stage — slingshot screen-left, structures screen-right. Distance is derived
+// from the aspect ratio so the whole lane always fits.
 function CameraRig({ followRef }: { followRef: React.MutableRefObject<THREE.Vector3 | null> }) {
   const camera = useThree((s) => s.camera)
   const size = useThree((s) => s.size)
-  const look = useRef(new THREE.Vector3(0, 1.4, -1.5))
+  const look = useRef(new THREE.Vector3(0, 2.8, -0.8))
 
   useEffect(() => {
     const cam = camera as THREE.PerspectiveCamera
     const a = size.width / size.height
-    const f = THREE.MathUtils.clamp(1.35 / a, 1, 2.0) // narrow screens step back
-    cam.position.set(5.6 - (f - 1) * 2.2, 4.4 + (f - 1) * 2.6, 12.8 + (f - 1) * 7.5)
+    const halfV = Math.tan((CAM_FOV / 2) * (Math.PI / 180))
+    const dist = THREE.MathUtils.clamp(HALF_W / (halfV * a), 14, 62)
+    cam.position.set(dist, 3.6, -0.8)
     cam.fov = CAM_FOV
     cam.aspect = a
     cam.updateProjectionMatrix()
@@ -193,11 +195,11 @@ function CameraRig({ followRef }: { followRef: React.MutableRefObject<THREE.Vect
     const target = followRef.current
     const goal = target
       ? new THREE.Vector3(
-          THREE.MathUtils.clamp(target.x * 0.5, -3, 3),
-          THREE.MathUtils.clamp(target.y * 0.35, 0.6, 2.4) + 0.8,
-          THREE.MathUtils.clamp(target.z * 0.6, -6, 4),
+          0,
+          THREE.MathUtils.clamp(target.y * 0.3, 0.5, 2.2) + 1.4,
+          THREE.MathUtils.clamp(target.z * 0.5, -4, 2.5),
         )
-      : new THREE.Vector3(0, 1.4, -1.5)
+      : new THREE.Vector3(0, 2.8, -0.8)
     const k = 1 - Math.exp(-3 * dt)
     look.current.lerp(goal, k)
     camera.lookAt(look.current)
@@ -240,6 +242,8 @@ function StructurePiece({
       density={5}
       linearDamping={0.15}
       angularDamping={0.6}
+      enabledTranslations={LOCK_T}
+      enabledRotations={LOCK_R}
       onCollisionEnter={handleImpact}
     >
       {isPost ? (
@@ -294,6 +298,8 @@ function KnotBody({
       density={3}
       linearDamping={0.2}
       angularDamping={0.5}
+      enabledTranslations={LOCK_T}
+      enabledRotations={LOCK_R}
       onCollisionEnter={handleImpact}
     >
       <BallCollider args={[KNOT_RADIUS]} />
@@ -313,8 +319,9 @@ function KnotBody({
 /* ------------------------------------------------------------------ */
 /*  Slingshot – wooden fork, bands, held block, trajectory dots         */
 /* ------------------------------------------------------------------ */
-const PRONG_L = new THREE.Vector3(ANCHOR.x - 0.55, ANCHOR.y + 0.15, ANCHOR.z)
-const PRONG_R = new THREE.Vector3(ANCHOR.x + 0.55, ANCHOR.y + 0.15, ANCHOR.z)
+// Prongs spread along z so the fork reads as a Y in the side view.
+const PRONG_L = new THREE.Vector3(ANCHOR.x, ANCHOR.y + 0.15, ANCHOR.z - 0.55)
+const PRONG_R = new THREE.Vector3(ANCHOR.x, ANCHOR.y + 0.15, ANCHOR.z + 0.55)
 
 function SlingFork() {
   return (
@@ -326,8 +333,8 @@ function SlingFork() {
       </mesh>
       {/* prongs */}
       <mesh
-        position={[(ANCHOR.x + PRONG_L.x) / 2 - 0.02, ANCHOR.y - 0.28, ANCHOR.z]}
-        rotation={[0, 0, 0.62]}
+        position={[ANCHOR.x, ANCHOR.y - 0.28, (ANCHOR.z + PRONG_L.z) / 2 - 0.02]}
+        rotation={[-0.62, 0, 0]}
         castShadow
         receiveShadow
       >
@@ -335,8 +342,8 @@ function SlingFork() {
         <meshStandardMaterial color="#c4a87e" roughness={0.85} />
       </mesh>
       <mesh
-        position={[(ANCHOR.x + PRONG_R.x) / 2 + 0.02, ANCHOR.y - 0.28, ANCHOR.z]}
-        rotation={[0, 0, -0.62]}
+        position={[ANCHOR.x, ANCHOR.y - 0.28, (ANCHOR.z + PRONG_R.z) / 2 + 0.02]}
+        rotation={[0.62, 0, 0]}
         castShadow
         receiveShadow
       >
@@ -351,7 +358,7 @@ function SlingFork() {
 function Band({ tip }: { tip: THREE.Vector3 }) {
   const ref = useRef<THREE.Mesh>(null)
   return (
-    <mesh ref={ref} name={`band-${tip.x < 0 ? "l" : "r"}`} visible={false}>
+    <mesh ref={ref} name={`band-${tip.z < ANCHOR.z ? "l" : "r"}`} visible={false}>
       <cylinderGeometry args={[0.045, 0.045, 1, 10]} />
       <meshStandardMaterial color="#7a5c40" roughness={0.7} />
     </mesh>
@@ -396,6 +403,8 @@ function LaunchedShot({
       density={6}
       linearDamping={0.05}
       angularDamping={0.8}
+      enabledTranslations={LOCK_T}
+      enabledRotations={LOCK_R}
       ccd
       onCollisionEnter={handleImpact}
     >
@@ -433,6 +442,8 @@ function MiniCube({
       friction={0.7}
       restitution={0.1}
       density={6}
+      enabledTranslations={LOCK_T}
+      enabledRotations={LOCK_R}
       ccd
       onCollisionEnter={handleImpact}
     >
@@ -467,7 +478,8 @@ function Effect({ fx, onDone }: { fx: EffectInst; onDone: (id: string) => void }
     }
   })
   return fx.type === "ring" ? (
-    <mesh ref={ref} position={fx.pos} rotation={[-Math.PI / 2, 0, 0]}>
+    // the shockwave ring faces the side camera (it lives in the play plane)
+    <mesh ref={ref} position={fx.pos} rotation={[0, Math.PI / 2, 0]}>
       <torusGeometry args={[1, 0.07, 10, 48]} />
       <meshBasicMaterial color="#e07b22" transparent opacity={0.55} toneMapped={false} />
     </mesh>
@@ -580,8 +592,9 @@ function GameWorld({ level, onHud, onWin, onLose }: SceneProps) {
       raycaster.setFromCamera(ndc, camera)
       const o = raycaster.ray.origin
       const d = raycaster.ray.direction
-      if (Math.abs(d.y) < 1e-4) return null
-      const t = (ANCHOR.y - o.y) / d.y
+      // aim in the vertical play plane (x = 0) the side camera looks at
+      if (Math.abs(d.x) < 1e-4) return null
+      const t = (ANCHOR.x - o.x) / d.x
       if (t <= 0) return null
       return o.clone().addScaledVector(d, t)
     },
@@ -598,8 +611,9 @@ function GameWorld({ level, onHud, onWin, onLose }: SceneProps) {
       return // too weak – re-seat the block
     }
     const s = len / PULL_MAX
-    const dir = p.clone().multiplyScalar(-1 / len)
-    const vel: [number, number, number] = [dir.x * V_MAX * s, V_MAX * s * LOFT, dir.z * V_MAX * s]
+    // launch straight opposite the pull, in the play plane – pull down-left,
+    // fly up-right, exactly like the classic slingshot
+    const vel: [number, number, number] = [0, -p.y * K, -p.z * K]
     const pos = ANCHOR.clone().add(p)
     const shotUid = uid()
     setShots((prev) => [
@@ -632,8 +646,9 @@ function GameWorld({ level, onHud, onWin, onLose }: SceneProps) {
       const hit = pointerToPlane(e.clientX, e.clientY)
       if (!hit) return
       const p = hit.sub(ANCHOR)
-      p.y = 0
+      p.x = 0
       p.z = Math.max(p.z, 0.15) // always pull back, never past the fork
+      p.y = Math.max(p.y, -ANCHOR.y + 0.3) // don't drag the block underground
       if (p.length() > PULL_MAX) p.setLength(PULL_MAX)
       pull.current.copy(p)
     }
@@ -665,23 +680,21 @@ function GameWorld({ level, onHud, onWin, onLose }: SceneProps) {
 
     switch (block.power) {
       case "spin": {
-        // sawblade sweep: violent spin about the vertical axis + a nudge forward
-        rb.setAngvel({ x: 0, y: v.x >= 0 ? -34 : 34, z: 0 }, true)
-        rb.setLinvel({ x: v.x * 1.15, y: Math.max(v.y, 0.5), z: v.z * 1.15 }, true)
+        // sawblade sweep: violent forward roll + a nudge onward
+        rb.setAngvel({ x: v.z >= 0 ? 34 : -34, y: 0, z: 0 }, true)
+        rb.setLinvel({ x: 0, y: Math.max(v.y, 0.5), z: v.z * 1.15 }, true)
         playWhoosh(1)
         break
       }
       case "dash": {
         // burst of speed, arc flattens
-        const h = Math.hypot(v.x, v.z) || 1
-        const k = (h * 2.3) / h
-        rb.setLinvel({ x: v.x * k, y: 1.2, z: v.z * k }, true)
+        rb.setLinvel({ x: 0, y: 1.2, z: v.z * 2.3 }, true)
         playWhoosh(1)
         break
       }
       case "slam": {
         // dive straight down like a dropped hammer
-        rb.setLinvel({ x: v.x * 0.25, y: -30, z: v.z * 0.25 }, true)
+        rb.setLinvel({ x: 0, y: -30, z: v.z * 0.25 }, true)
         rb.setAngvel({ x: 6, y: 0, z: 0 }, true)
         playWhoosh(0.8)
         break
@@ -708,23 +721,18 @@ function GameWorld({ level, onHud, onWin, onLose }: SceneProps) {
         break
       }
       case "split": {
-        // one cube becomes three, fanning out
+        // one cube becomes three, fanning out in the play plane like the trio
         const shotUid = flightUids.current[0]
         setShots((prev) => prev.map((sh) => (sh.uid === shotUid ? { ...sh, hidden: true } : sh)))
-        const base = new THREE.Vector3(v.x, v.y, v.z)
-        const speed = base.length() || 1
-        const flat = new THREE.Vector3(v.x, 0, v.z).normalize()
-        const side = new THREE.Vector3(-flat.z, 0, flat.x)
         const minis: DebrisInst[] = [-1, 0, 1].map((i) => {
-          const dir = base
-            .clone()
-            .addScaledVector(side, i * speed * 0.22)
-            .setLength(speed * 1.05)
-          dir.y = v.y + 1.2 - Math.abs(i) * 0.8
+          // rotate the velocity a touch up / down around the x axis
+          const a = i * 0.22
+          const vy = v.y * Math.cos(a) - v.z * Math.sin(a) * 0.6 + 0.8
+          const vz = v.z * Math.cos(a) * 1.05
           return {
             uid: uid(),
-            pos: [t.x + side.x * i * 0.4, t.y + 0.05, t.z + side.z * i * 0.4],
-            vel: [dir.x, dir.y, dir.z],
+            pos: [0, t.y + 0.05 + i * 0.78, t.z + i * 0.12],
+            vel: [0, vy, vz],
           }
         })
         flightUids.current = minis.map((m) => m.uid)
@@ -787,10 +795,7 @@ function GameWorld({ level, onHud, onWin, onLose }: SceneProps) {
       dots.visible = show
       if (show) {
         const p = pull.current
-        const len = p.length()
-        const s = len / PULL_MAX
-        const dir = p.clone().multiplyScalar(-1 / len)
-        const v = new THREE.Vector3(dir.x * V_MAX * s, V_MAX * s * LOFT, dir.z * V_MAX * s)
+        const v = new THREE.Vector3(0, -p.y * K, -p.z * K)
         const p0 = ANCHOR.clone().add(p)
         dots.children.forEach((dot, i) => {
           const t = 0.08 * (i + 1)
@@ -906,13 +911,13 @@ function GameWorld({ level, onHud, onWin, onLose }: SceneProps) {
         </mesh>
       </group>
 
-      {/* blocks waiting their turn, resting beside the sling */}
+      {/* blocks waiting their turn, lined up behind the sling (screen-left) */}
       {queue.map((id, i) => {
         if (i <= shotIdx) return null
         const b = BLOCK_BY_ID[id]
         const y = b.shape === "cylinder" ? b.halfHeight : b.half[1]
         return (
-          <group key={`wait-${i}`} position={[-2.2 - (i - shotIdx - 1) * 1.5, y * 0.8, 8.4]} scale={0.8}>
+          <group key={`wait-${i}`} position={[0, y * 0.65, 8.5 + (i - shotIdx - 1) * 1.0]} scale={0.65}>
             <Suspense fallback={null}>
               <PaintedMesh block={b} />
             </Suspense>
@@ -955,7 +960,7 @@ export default function Scene(props: SceneProps) {
       shadows
       dpr={[1, 1.75]}
       gl={{ antialias: true, preserveDrawingBuffer: false, powerPreference: "high-performance" }}
-      camera={{ position: [5.6, 4.4, 12.8], fov: CAM_FOV, near: 0.1, far: 200 }}
+      camera={{ position: [30, 3.6, -0.8], fov: CAM_FOV, near: 0.1, far: 200 }}
       onCreated={({ gl }) => {
         gl.toneMapping = THREE.NoToneMapping
       }}

@@ -98,7 +98,6 @@ export default function KlossGame() {
         return (
           <div
             key={`${level.id}-${i}`}
-            title={`${b.name} — ${b.powerName}`}
             className="flex h-9 w-9 items-center justify-center rounded-full shadow-sm transition-all duration-300"
             style={{
               backgroundColor: b.color,
