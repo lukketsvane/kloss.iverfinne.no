@@ -395,7 +395,7 @@ type ShotInst = {
   hidden?: boolean
 }
 type DebrisInst = { uid: string; pos: [number, number, number]; vel: [number, number, number] }
-type EffectInst = { id: string; type: "pop" | "ring"; pos: [number, number, number] }
+type EffectInst = { id: string; type: "pop" | "ring"; pos: [number, number, number]; color?: string }
 
 function LaunchedShot({
   shot,
@@ -499,7 +499,7 @@ function Effect({ fx, onDone }: { fx: EffectInst; onDone: (id: string) => void }
     // the shockwave ring faces the side camera (it lives in the play plane)
     <mesh ref={ref} position={fx.pos} rotation={[0, Math.PI / 2, 0]}>
       <torusGeometry args={[1, 0.07, 10, 48]} />
-      <meshBasicMaterial color="#e07b22" transparent opacity={0.55} toneMapped={false} />
+      <meshBasicMaterial color={fx.color ?? "#c83a2e"} transparent opacity={0.55} toneMapped={false} />
     </mesh>
   ) : (
     <mesh ref={ref} position={fx.pos}>
@@ -736,7 +736,10 @@ function GameWorld({ level, onHud, onWin, onLose }: SceneProps) {
           body.applyImpulse({ x: dv.x * m, y: dv.y * m, z: dv.z * m }, true)
         })
         rb.setLinvel({ x: v.x * 0.2, y: -6, z: v.z * 0.2 }, true)
-        setEffects((fx) => [...fx, { id: uid(), type: "ring", pos: [t.x, Math.max(t.y, 0.4), t.z] }])
+        setEffects((fx) => [
+          ...fx,
+          { id: uid(), type: "ring", pos: [t.x, Math.max(t.y, 0.4), t.z], color: block.color },
+        ])
         playBoom()
         break
       }
@@ -843,11 +846,14 @@ function GameWorld({ level, onHud, onWin, onLose }: SceneProps) {
       mesh.scale.set(1, lenB, 1)
     })
 
-    // knots that fell to the floor are down
+    // a knot is down when it reaches the floor OR falls well below its perch
+    // (landing on toppled debris still counts as knocked down)
     knotsAliveRef.current.forEach((alive, i) => {
       if (!alive) return
       const rb = bodies.current.get(`knot-${i}`)
-      if (rb && rb.isValid() && rb.translation().y < KNOT_RADIUS + 0.08) knotDown(i)
+      if (!rb || !rb.isValid()) return
+      const y = rb.translation().y
+      if (y < KNOT_RADIUS + 0.08 || y < level.knots[i].pos[1] - 1.5) knotDown(i)
     })
 
     // flight tracking → shot spent → next block

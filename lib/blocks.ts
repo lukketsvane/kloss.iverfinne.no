@@ -47,9 +47,10 @@ export const BLOCKS: Block[] = [
     halfHeight: (60 * S) / 2,
     dims: "Ø 30 mm · H 60 mm",
     mesh: MESHES.cylinder,
-    power: "slam",
-    powerName: "Slam",
-    powerHint: "tap: dive straight down",
+    // the red cylinder IS the dynamite stick – tap and it goes off
+    power: "blast",
+    powerName: "Dynamite",
+    powerHint: "tap: explode",
   },
   {
     id: "cube",
@@ -98,9 +99,9 @@ export const BLOCKS: Block[] = [
     half: [(45 * S) / 2, (24 * S) / 2, (45 * S) / 2],
     dims: "45 × 45 × 24 mm",
     mesh: MESHES.orange,
-    power: "blast",
-    powerName: "Blast",
-    powerHint: "tap: shockwave",
+    power: "slam",
+    powerName: "Slam",
+    powerHint: "tap: dive straight down",
   },
 ]
 

@@ -55,67 +55,64 @@ function shortPortal(z: number, gap = 1.4): Piece[] {
 
 export const LEVELS: LevelDef[] = [
   {
-    id: "first-tower",
-    name: "First tower",
-    pieces: [
-      ...plankPortal(-3),
-      { kind: "cube", pos: [0, CUBE_H / 2, -0.8] },
-      { kind: "cube", pos: [0, CUBE_H / 2, -5.2] },
-    ],
-    knots: [{ pos: [0, PLANK_H + DECK + KR, -3] }],
-    shots: ["cylinder", "cube", "plank-short"],
+    // 1 — meet the basic block: one cyan cube, one wobbly pillar. Just throw.
+    id: "meet-the-cube",
+    name: "The cube",
+    pieces: [{ kind: "short", pos: [0, SHORT_H / 2, -3] }],
+    knots: [{ pos: [0, SHORT_H + KR, -3] }],
+    shots: ["cube"],
   },
   {
-    id: "two-towers",
-    name: "Two towers",
+    // 2 — the red cylinder is dynamite: the knot hides between two walls, so
+    // land nearby and tap to blow everything over.
+    id: "dynamite",
+    name: "Dynamite",
     pieces: [
-      ...shortPortal(-1.4),
-      ...shortPortal(-6.2),
-      { kind: "slab", pos: [0, SLAB_H / 2, -3.8] },
-      { kind: "cube", pos: [0, SLAB_H + CUBE_H / 2, -3.8] },
+      { kind: "plank", pos: [0, PLANK_H / 2, -3.6] },
+      { kind: "cube", pos: [0, CUBE_H / 2, -5] },
+      { kind: "plank", pos: [0, PLANK_H / 2, -6.4] },
     ],
-    knots: [
-      { pos: [0, SHORT_H + DECK + KR, -1.4] },
-      { pos: [0, SHORT_H + DECK + KR, -6.2] },
-    ],
-    shots: ["plank-short", "cylinder", "cube", "plank-long"],
+    knots: [{ pos: [0, CUBE_H + KR, -5] }],
+    shots: ["cylinder", "cylinder"],
   },
   {
-    id: "the-wall",
-    name: "The wall",
+    // 3 — the short plank dashes: the target stands far away, tap for speed.
+    id: "dash",
+    name: "Dash",
     pieces: [
-      // a two-storey palisade shielding the knot behind it
-      { kind: "cube", pos: [0, CUBE_H / 2, -1.1] },
-      { kind: "plank", pos: [0, PLANK_H / 2, -2] },
-      { kind: "plank", pos: [0, PLANK_H + PLANK_H / 2, -2] },
-      { kind: "short", pos: [0, SHORT_H / 2, -2.8] },
-      // the sheltered pedestal
-      { kind: "slab", pos: [0, SLAB_H / 2, -4.6] },
-      // rear guard
-      { kind: "cube", pos: [0, CUBE_H / 2, -6.2] },
-      { kind: "cube", pos: [0, CUBE_H + CUBE_H / 2, -6.2] },
+      { kind: "short", pos: [0, SHORT_H / 2, -2.5] },
+      { kind: "post", pos: [0, POST_H / 2, -8.5] },
+      { kind: "slab", pos: [0, POST_H + SLAB_H / 2, -8.5] },
     ],
-    knots: [{ pos: [0, SLAB_H + KR, -4.6] }],
-    shots: ["cylinder", "plank-long", "plank-short", "orange"],
+    knots: [{ pos: [0, POST_H + SLAB_H + KR, -8.5] }],
+    shots: ["plank-short", "plank-short"],
   },
   {
-    id: "pillars",
-    name: "Pillars",
+    // 4 — the long plank sweeps: a row of uprights between you and the knot,
+    // tap to spin straight through them.
+    id: "sweep",
+    name: "Sweep",
     pieces: [
-      { kind: "post", pos: [0, POST_H / 2, -2.2] },
-      { kind: "slab", pos: [0, POST_H + SLAB_H / 2, -2.2] },
-      { kind: "post", pos: [0, POST_H / 2, -4.7] },
-      { kind: "slab", pos: [0, POST_H + SLAB_H / 2, -4.7] },
-      { kind: "cube", pos: [0, POST_H + SLAB_H + CUBE_H / 2, -4.7] },
-      { kind: "post", pos: [0, POST_H / 2, -7.2] },
-      { kind: "slab", pos: [0, POST_H + SLAB_H / 2, -7.2] },
-      { kind: "cube", pos: [0, CUBE_H / 2, -0.6] },
+      { kind: "plank", pos: [0, PLANK_H / 2, -3] },
+      { kind: "plank", pos: [0, PLANK_H / 2, -4.2] },
+      { kind: "plank", pos: [0, PLANK_H / 2, -5.4] },
+      { kind: "slab", pos: [0, SLAB_H / 2, -7] },
     ],
-    knots: [
-      { pos: [0, POST_H + SLAB_H + KR, -2.2] },
-      { pos: [0, POST_H + SLAB_H + KR, -7.2] },
+    knots: [{ pos: [0, SLAB_H + KR, -7] }],
+    shots: ["plank-long", "plank-long"],
+  },
+  {
+    // 5 — the orange block slams: a wall too tall to shoot through, so lob it
+    // over and tap to drop it straight onto the knot.
+    id: "slam",
+    name: "Slam",
+    pieces: [
+      { kind: "plank", pos: [0, PLANK_H / 2, -3] },
+      { kind: "plank", pos: [0, PLANK_H + PLANK_H / 2, -3] },
+      { kind: "slab", pos: [0, SLAB_H / 2, -5.4] },
     ],
-    shots: ["cube", "orange", "cylinder", "plank-short"],
+    knots: [{ pos: [0, SLAB_H + KR, -5.4] }],
+    shots: ["orange", "orange"],
   },
   {
     id: "the-castle",
