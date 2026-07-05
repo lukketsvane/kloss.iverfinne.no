@@ -1,7 +1,9 @@
 // Level definitions: unpainted wooden structures down the lane, the knots
 // (knock-down targets) perched in them, and the queue of painted blocks you
-// get to sling at them. All heights are derived from the block mm sizes so
-// pieces stack exactly on top of each other.
+// get to sling at them. The game is viewed side-on like a 2D stage: the sling
+// stands at z = 7 (screen-left) and every structure lives on the x = 0 plane,
+// spread along z (screen-right). Heights are derived from the block mm sizes
+// so pieces stack exactly on top of each other.
 import { KNOT_RADIUS, type RawKind } from "./blocks"
 
 // A structure piece is axis-aligned: `orient` picks which way the block lies
@@ -33,21 +35,21 @@ const POST_H = 2.16 // 60 mm upright
 const DECK = 0.54 // a plank lying flat is 15 mm thick
 const KR = KNOT_RADIUS
 
-// two upright planks + a plank deck across them
-function plankPortal(x: number, z: number, gap = 1.8): Piece[] {
+// two upright planks + a plank deck across them, spanning along the lane (z)
+function plankPortal(z: number, gap = 1.8): Piece[] {
   return [
-    { kind: "plank", pos: [x - gap / 2, PLANK_H / 2, z] },
-    { kind: "plank", pos: [x + gap / 2, PLANK_H / 2, z] },
-    { kind: "plank", orient: "deckX", pos: [x, PLANK_H + DECK / 2, z] },
+    { kind: "plank", pos: [0, PLANK_H / 2, z - gap / 2] },
+    { kind: "plank", pos: [0, PLANK_H / 2, z + gap / 2] },
+    { kind: "plank", orient: "deckZ", pos: [0, PLANK_H + DECK / 2, z] },
   ]
 }
 
 // the smaller version built from the short planks
-function shortPortal(x: number, z: number, gap = 1.4): Piece[] {
+function shortPortal(z: number, gap = 1.4): Piece[] {
   return [
-    { kind: "short", pos: [x - gap / 2, SHORT_H / 2, z] },
-    { kind: "short", pos: [x + gap / 2, SHORT_H / 2, z] },
-    { kind: "short", orient: "deckX", pos: [x, SHORT_H + DECK / 2, z] },
+    { kind: "short", pos: [0, SHORT_H / 2, z - gap / 2] },
+    { kind: "short", pos: [0, SHORT_H / 2, z + gap / 2] },
+    { kind: "short", orient: "deckZ", pos: [0, SHORT_H + DECK / 2, z] },
   ]
 }
 
@@ -56,25 +58,25 @@ export const LEVELS: LevelDef[] = [
     id: "first-tower",
     name: "First tower",
     pieces: [
-      ...plankPortal(0, -4),
-      { kind: "cube", pos: [-2.3, CUBE_H / 2, -4] },
-      { kind: "cube", pos: [2.3, CUBE_H / 2, -4] },
+      ...plankPortal(-3),
+      { kind: "cube", pos: [0, CUBE_H / 2, -0.8] },
+      { kind: "cube", pos: [0, CUBE_H / 2, -5.2] },
     ],
-    knots: [{ pos: [0, PLANK_H + DECK + KR, -4] }],
+    knots: [{ pos: [0, PLANK_H + DECK + KR, -3] }],
     shots: ["cylinder", "cube", "plank-short"],
   },
   {
     id: "two-towers",
     name: "Two towers",
     pieces: [
-      ...shortPortal(-2.4, -4.5),
-      ...shortPortal(2.4, -4.5),
-      { kind: "slab", pos: [0, SLAB_H / 2, -5] },
-      { kind: "cube", pos: [0, SLAB_H + CUBE_H / 2, -5] },
+      ...shortPortal(-1.4),
+      ...shortPortal(-6.2),
+      { kind: "slab", pos: [0, SLAB_H / 2, -3.8] },
+      { kind: "cube", pos: [0, SLAB_H + CUBE_H / 2, -3.8] },
     ],
     knots: [
-      { pos: [-2.4, SHORT_H + DECK + KR, -4.5] },
-      { pos: [2.4, SHORT_H + DECK + KR, -4.5] },
+      { pos: [0, SHORT_H + DECK + KR, -1.4] },
+      { pos: [0, SHORT_H + DECK + KR, -6.2] },
     ],
     shots: ["plank-short", "cylinder", "cube", "plank-long"],
   },
@@ -82,36 +84,36 @@ export const LEVELS: LevelDef[] = [
     id: "the-wall",
     name: "The wall",
     pieces: [
-      // a two-story palisade shielding the knot behind it
-      { kind: "plank", pos: [-1.15, PLANK_H / 2, -3] },
-      { kind: "plank", pos: [0, PLANK_H / 2, -3] },
-      { kind: "plank", pos: [1.15, PLANK_H / 2, -3] },
-      { kind: "plank", orient: "deckX", pos: [0, PLANK_H + DECK / 2, -3] },
-      { kind: "plank", pos: [-0.6, PLANK_H + DECK + PLANK_H / 2, -3] },
-      { kind: "plank", pos: [0.6, PLANK_H + DECK + PLANK_H / 2, -3] },
+      // a two-storey palisade shielding the knot behind it
+      { kind: "cube", pos: [0, CUBE_H / 2, -1.1] },
+      { kind: "plank", pos: [0, PLANK_H / 2, -2] },
+      { kind: "plank", pos: [0, PLANK_H + PLANK_H / 2, -2] },
+      { kind: "short", pos: [0, SHORT_H / 2, -2.8] },
       // the sheltered pedestal
-      { kind: "slab", pos: [0, SLAB_H / 2, -5.6] },
+      { kind: "slab", pos: [0, SLAB_H / 2, -4.6] },
+      // rear guard
+      { kind: "cube", pos: [0, CUBE_H / 2, -6.2] },
+      { kind: "cube", pos: [0, CUBE_H + CUBE_H / 2, -6.2] },
     ],
-    knots: [{ pos: [0, SLAB_H + KR, -5.6] }],
+    knots: [{ pos: [0, SLAB_H + KR, -4.6] }],
     shots: ["cylinder", "plank-long", "plank-short", "orange"],
   },
   {
     id: "pillars",
     name: "Pillars",
     pieces: [
-      { kind: "post", pos: [-2.6, POST_H / 2, -5] },
-      { kind: "slab", pos: [-2.6, POST_H + SLAB_H / 2, -5] },
-      { kind: "post", pos: [0, POST_H / 2, -5] },
-      { kind: "slab", pos: [0, POST_H + SLAB_H / 2, -5] },
-      { kind: "cube", pos: [0, POST_H + SLAB_H + CUBE_H / 2, -5] },
-      { kind: "post", pos: [2.6, POST_H / 2, -5] },
-      { kind: "slab", pos: [2.6, POST_H + SLAB_H / 2, -5] },
-      { kind: "cube", pos: [-1.3, CUBE_H / 2, -3.6] },
-      { kind: "cube", pos: [1.3, CUBE_H / 2, -3.6] },
+      { kind: "post", pos: [0, POST_H / 2, -2.2] },
+      { kind: "slab", pos: [0, POST_H + SLAB_H / 2, -2.2] },
+      { kind: "post", pos: [0, POST_H / 2, -4.7] },
+      { kind: "slab", pos: [0, POST_H + SLAB_H / 2, -4.7] },
+      { kind: "cube", pos: [0, POST_H + SLAB_H + CUBE_H / 2, -4.7] },
+      { kind: "post", pos: [0, POST_H / 2, -7.2] },
+      { kind: "slab", pos: [0, POST_H + SLAB_H / 2, -7.2] },
+      { kind: "cube", pos: [0, CUBE_H / 2, -0.6] },
     ],
     knots: [
-      { pos: [-2.6, POST_H + SLAB_H + KR, -5] },
-      { pos: [2.6, POST_H + SLAB_H + KR, -5] },
+      { pos: [0, POST_H + SLAB_H + KR, -2.2] },
+      { pos: [0, POST_H + SLAB_H + KR, -7.2] },
     ],
     shots: ["cube", "orange", "cylinder", "plank-short"],
   },
@@ -119,24 +121,24 @@ export const LEVELS: LevelDef[] = [
     id: "the-castle",
     name: "The castle",
     pieces: [
+      // gatehouse screening a pedestal knot tucked behind it
+      ...shortPortal(-0.8),
+      { kind: "cube", pos: [0, CUBE_H / 2, -2.9] },
       // centre keep: a plank portal with a second storey of short planks
-      ...plankPortal(0, -5.5, 1.9),
-      { kind: "short", pos: [-0.6, PLANK_H + DECK + SHORT_H / 2, -5.5] },
-      { kind: "short", pos: [0.6, PLANK_H + DECK + SHORT_H / 2, -5.5] },
-      { kind: "short", orient: "deckX", pos: [0, PLANK_H + DECK + SHORT_H + DECK / 2, -5.5] },
-      // side towers screening a pedestal knot tucked behind each
-      ...shortPortal(-3.0, -4.5),
-      ...shortPortal(3.0, -4.5),
-      { kind: "slab", pos: [-3.0, SLAB_H / 2, -6.4] },
-      { kind: "slab", pos: [3.0, SLAB_H / 2, -6.4] },
-      // outriders
-      { kind: "post", pos: [-4.6, POST_H / 2, -5.5] },
-      { kind: "post", pos: [4.6, POST_H / 2, -5.5] },
+      ...plankPortal(-5.2, 1.9),
+      { kind: "short", pos: [0, PLANK_H + DECK + SHORT_H / 2, -4.6] },
+      { kind: "short", pos: [0, PLANK_H + DECK + SHORT_H / 2, -5.8] },
+      { kind: "short", orient: "deckZ", pos: [0, PLANK_H + DECK + SHORT_H + DECK / 2, -5.2] },
+      // rear tower screening the last knot
+      ...shortPortal(-7.7),
+      { kind: "slab", pos: [0, SLAB_H / 2, -9.6] },
+      // front outrider
+      { kind: "post", pos: [0, POST_H / 2, 0.6] },
     ],
     knots: [
-      { pos: [0, PLANK_H + DECK + SHORT_H + DECK + KR, -5.5] }, // on the keep
-      { pos: [-3.0, SLAB_H + KR, -6.4] }, // screened left
-      { pos: [3.0, SLAB_H + KR, -6.4] }, // screened right
+      { pos: [0, PLANK_H + DECK + SHORT_H + DECK + KR, -5.2] }, // on the keep
+      { pos: [0, CUBE_H + KR, -2.9] }, // behind the gatehouse
+      { pos: [0, SLAB_H + KR, -9.6] }, // behind the rear tower
     ],
     shots: ["cube", "plank-short", "cylinder", "plank-long", "orange"],
   },
