@@ -39,7 +39,7 @@ export const viewport: Viewport = {
   userScalable: false,
   viewportFit: 'cover',
   colorScheme: 'light',
-  themeColor: '#f6f2ea',
+  themeColor: '#ffffff',
 }
 
 export default function RootLayout({
@@ -48,8 +48,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} bg-[#f6f2ea]`}>
-      <body className="overflow-hidden bg-[#f6f2ea] font-sans antialiased">
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} bg-white`}>
+      <body className="overflow-hidden bg-white font-sans antialiased">
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
