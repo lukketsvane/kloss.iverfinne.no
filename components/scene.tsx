@@ -40,7 +40,7 @@ import { playBoom, playImpact, playPop, playWhoosh, primeBlocks } from "@/lib/im
 /*  Tuning                                                             */
 /* ------------------------------------------------------------------ */
 const G = 25 // same gravity feel as kl.oss.ete
-const ANCHOR = new THREE.Vector3(0, 1.9, 7) // where the loaded block hangs
+const ANCHOR = new THREE.Vector3(0, 2.6, 7) // where the loaded block hangs, at the fork's mouth
 const PULL_MAX = 2.6 // how far back the sling stretches
 const V_MAX = 21 // launch speed at full pull
 const K = V_MAX / PULL_MAX // pull length -> launch speed
@@ -132,12 +132,12 @@ function Room() {
       <ambientLight intensity={0.7} color="#ffffff" />
       <pointLight position={[8, 12, 0]} intensity={10} distance={60} decay={2} color="#ffffff" />
       <directionalLight
-        position={[6, 16, 9]}
+        position={[6, 11, 7]}
         intensity={1.7}
         color="#ffffff"
         castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
+        shadow-mapSize-width={4096}
+        shadow-mapSize-height={4096}
         shadow-camera-near={1}
         shadow-camera-far={60}
         shadow-camera-left={-16}
@@ -153,7 +153,9 @@ function Room() {
           only the soft grey shadows remain */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[240, 240]} />
-        <shadowMaterial opacity={0.28} color="#000000" />
+        {/* heavy opacity: the shadow must knock the HDR-white ground below the
+            tone-mapping shoulder before it reads as grey at all */}
+        <shadowMaterial opacity={0.85} color="#000000" />
       </mesh>
 
       {/* physical floor */}
@@ -171,7 +173,7 @@ function Room() {
 // stage — slingshot screen-left, structures screen-right. Distance is derived
 // from the aspect ratio so the whole lane always fits. It opens zoomed in on
 // the painted blocks waiting at the sling, and glides out on the first touch.
-const INTRO_LOOK = new THREE.Vector3(0, 1.2, 8.2)
+const INTRO_LOOK = new THREE.Vector3(0, 1.6, 8.6)
 function CameraRig({
   followRef,
   introRef,
@@ -197,8 +199,8 @@ function CameraRig({
     let lookGoal: THREE.Vector3
     if (introRef.current) {
       // close-up on the ammo line-up, framed centre-screen
-      const dist = THREE.MathUtils.clamp(3.4 / (halfV * Math.min(a, 1.6)), 4, 26)
-      posGoal = new THREE.Vector3(dist, 1.7, INTRO_LOOK.z)
+      const dist = THREE.MathUtils.clamp(4.0 / (halfV * Math.min(a, 1.6)), 4, 28)
+      posGoal = new THREE.Vector3(dist, 2.0, INTRO_LOOK.z)
       lookGoal = INTRO_LOOK
     } else {
       const dist = THREE.MathUtils.clamp(HALF_W / (halfV * a), 14, 62)
@@ -212,9 +214,10 @@ function CameraRig({
           )
         : new THREE.Vector3(0, 2.8, -0.8)
     }
-    const k = 1 - Math.exp(-3 * dt)
-    camera.position.lerp(posGoal, k)
-    look.current.lerp(lookGoal, k)
+    // the position eases slower than the gaze so the reveal feels like a
+    // gentle pull-back rather than a cut
+    camera.position.lerp(posGoal, 1 - Math.exp(-1.8 * dt))
+    look.current.lerp(lookGoal, 1 - Math.exp(-2.6 * dt))
     camera.lookAt(look.current)
   })
   return null
@@ -332,35 +335,37 @@ function KnotBody({
 /* ------------------------------------------------------------------ */
 /*  Slingshot – wooden fork, bands, held block, trajectory dots         */
 /* ------------------------------------------------------------------ */
-// Prongs spread along z so the fork reads as a Y in the side view.
-const PRONG_L = new THREE.Vector3(ANCHOR.x, ANCHOR.y + 0.15, ANCHOR.z - 0.55)
-const PRONG_R = new THREE.Vector3(ANCHOR.x, ANCHOR.y + 0.15, ANCHOR.z + 0.55)
+// Prongs spread along z so the fork reads as a Y in the side view. The fork is
+// sized like a real sprettert next to the blocks: taller than the tallest
+// block, with the loaded piece nesting in its mouth.
+const PRONG_L = new THREE.Vector3(ANCHOR.x, ANCHOR.y + 0.25, ANCHOR.z - 0.85)
+const PRONG_R = new THREE.Vector3(ANCHOR.x, ANCHOR.y + 0.25, ANCHOR.z + 0.85)
 
 function SlingFork() {
   return (
     <group>
       {/* trunk */}
-      <mesh position={[ANCHOR.x, (ANCHOR.y - 0.55) / 2, ANCHOR.z]} castShadow receiveShadow>
-        <cylinderGeometry args={[0.16, 0.2, ANCHOR.y - 0.55, 20]} />
+      <mesh position={[ANCHOR.x, 0.8, ANCHOR.z]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.17, 0.23, 1.6, 20]} />
         <meshStandardMaterial color="#c4a87e" roughness={0.85} />
       </mesh>
-      {/* prongs */}
+      {/* prongs, reaching from the trunk top out to the band tips */}
       <mesh
-        position={[ANCHOR.x, ANCHOR.y - 0.28, (ANCHOR.z + PRONG_L.z) / 2 - 0.02]}
-        rotation={[-0.62, 0, 0]}
+        position={[ANCHOR.x, 2.17, ANCHOR.z - 0.42]}
+        rotation={[-0.56, 0, 0]}
         castShadow
         receiveShadow
       >
-        <cylinderGeometry args={[0.11, 0.13, 1.15, 16]} />
+        <cylinderGeometry args={[0.13, 0.16, 1.65, 16]} />
         <meshStandardMaterial color="#c4a87e" roughness={0.85} />
       </mesh>
       <mesh
-        position={[ANCHOR.x, ANCHOR.y - 0.28, (ANCHOR.z + PRONG_R.z) / 2 + 0.02]}
-        rotation={[0.62, 0, 0]}
+        position={[ANCHOR.x, 2.17, ANCHOR.z + 0.42]}
+        rotation={[0.56, 0, 0]}
         castShadow
         receiveShadow
       >
-        <cylinderGeometry args={[0.11, 0.13, 1.15, 16]} />
+        <cylinderGeometry args={[0.13, 0.16, 1.65, 16]} />
         <meshStandardMaterial color="#c4a87e" roughness={0.85} />
       </mesh>
     </group>
@@ -642,6 +647,7 @@ function GameWorld({ level, onHud, onWin, onLose }: SceneProps) {
     ])
     flightUids.current = [shotUid]
     flightGrace.current = 0.5
+    introRef.current = false // the stage only reveals itself once the block flies
     flyingRef.current = true
     powerUsedRef.current = false
     slowTime.current = 0
@@ -662,7 +668,7 @@ function GameWorld({ level, onHud, onWin, onLose }: SceneProps) {
       const p = hit.sub(ANCHOR)
       p.x = 0
       p.z = Math.max(p.z, 0.15) // always pull back, never past the fork
-      p.y = Math.max(p.y, -ANCHOR.y + 0.3) // don't drag the block underground
+      p.y = Math.max(p.y, -ANCHOR.y + 1.1) // don't drag the block into the ground
       if (p.length() > PULL_MAX) p.setLength(PULL_MAX)
       pull.current.copy(p)
     }
@@ -762,7 +768,6 @@ function GameWorld({ level, onHud, onWin, onLose }: SceneProps) {
   useEffect(() => {
     const el = gl.domElement
     const onDown = () => {
-      introRef.current = false // first touch: glide out to the full stage
       // dev aid: record why a tap did / didn't trigger the power
       ;(window as unknown as { __tap?: unknown }).__tap = {
         aiming: aiming.current,
@@ -926,19 +931,31 @@ function GameWorld({ level, onHud, onWin, onLose }: SceneProps) {
         </mesh>
       </group>
 
-      {/* blocks waiting their turn, lined up behind the sling (screen-left) */}
-      {queue.map((id, i) => {
-        if (i <= shotIdx) return null
-        const b = BLOCK_BY_ID[id]
-        const y = b.shape === "cylinder" ? b.halfHeight : b.half[1]
-        return (
-          <group key={`wait-${i}`} position={[0, y * 0.65, 8.5 + (i - shotIdx - 1) * 1.0]} scale={0.65}>
-            <Suspense fallback={null}>
-              <PaintedMesh block={b} />
-            </Suspense>
-          </group>
-        )
-      })}
+      {/* blocks waiting their turn, lined up behind the sling (screen-left),
+          spaced by each block's real footprint so they never overlap */}
+      {(() => {
+        const scale = 0.55
+        const gap = 0.3
+        let zc = ANCHOR.z + 1.6
+        const row: React.ReactNode[] = []
+        queue.forEach((id, i) => {
+          if (i <= shotIdx) return
+          const b = BLOCK_BY_ID[id]
+          const depth = (b.shape === "cylinder" ? b.radius * 2 : b.half[2] * 2) * scale
+          const y = (b.shape === "cylinder" ? b.halfHeight : b.half[1]) * scale
+          const z = zc + depth / 2
+          zc += depth + gap
+          row.push(
+            // a step back in depth (-x) so a fully-pulled block never clips them
+            <group key={`wait-${i}`} position={[-1.2, y, z]} scale={scale}>
+              <Suspense fallback={null}>
+                <PaintedMesh block={b} />
+              </Suspense>
+            </group>,
+          )
+        })
+        return row
+      })()}
 
       {/* launched blocks stay in the world */}
       <Suspense fallback={null}>
@@ -978,11 +995,13 @@ export default function Scene(props: SceneProps) {
       camera={{ position: [7, 1.7, 8.2], fov: CAM_FOV, near: 0.1, far: 200 }}
       onCreated={({ gl }) => {
         gl.toneMapping = THREE.NoToneMapping
+        gl.shadowMap.type = THREE.BasicShadowMap // hard-edged toy-box shadows
       }}
       style={{ touchAction: "none" }}
     >
-      {/* HDR white so the sky stays 100% white through ACES tone mapping */}
-      <color attach="background" args={[6, 6, 6]} />
+      {/* HDR white so the sky stays 100% white through ACES tone mapping –
+          kept just past saturation so ground shadows can still cut through */}
+      <color attach="background" args={[3, 3, 3]} />
       <Physics gravity={[0, -G, 0]} timeStep={1 / 60} numSolverIterations={8} maxCcdSubsteps={2} interpolate>
         <Suspense fallback={null}>
           <GameWorld {...props} />
