@@ -11,11 +11,14 @@ Tap while a block is in flight to trigger its power (once per shot):
 
 | Block | Size | Power |
 | --- | --- | --- |
-| Red Cylinder | Ø 30 mm · H 60 mm | **Slam** — dives straight down |
 | Light Blue Cube | 30 × 30 × 30 mm | **Split** — becomes three cubes |
+| Red Cylinder | Ø 30 mm · H 60 mm | **Dynamite** — explodes |
 | Dark Blue Short | 30 × 60 × 15 mm | **Dash** — a burst of speed |
 | Dark Blue Plank | 30 × 75 × 15 mm | **Sweep** — spins like a sawblade |
-| Orange Block | 45 × 45 × 24 mm | **Blast** — a radial shockwave |
+| Orange Block | 45 × 45 × 24 mm | **Slam** — dives straight down |
+
+The first five levels introduce the blocks one at a time — starting with a
+single cyan cube — and the finale throws all five at a castle.
 
 ## How to play
 

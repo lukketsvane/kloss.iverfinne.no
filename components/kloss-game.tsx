@@ -15,14 +15,12 @@ const Scene = dynamic(() => import("@/components/scene"), { ssr: false })
 
 export default function KlossGame() {
   const [levelIdx, setLevelIdx] = useState(0)
-  const [unlocked, setUnlocked] = useState(0)
   const [attempt, setAttempt] = useState(0)
   const [result, setResult] = useState<null | { kind: "win"; stars: number } | { kind: "lose" }>(null)
   const [hud, setHud] = useState<HudState>({ shotIdx: 0, flying: false, powerUsed: false, knotsLeft: 0 })
 
   useEffect(() => {
     const p = loadProgress()
-    setUnlocked(p.unlocked)
     setLevelIdx(Math.min(p.unlocked, LEVELS.length - 1))
   }, [])
 
@@ -42,7 +40,6 @@ export default function KlossGame() {
         stars: { ...p.stars, [LEVELS[levelIdx].id]: Math.max(p.stars[LEVELS[levelIdx].id] ?? 0, stars) },
       }
       saveProgress(next)
-      setUnlocked(next.unlocked)
     },
     [levelIdx],
   )
@@ -67,37 +64,10 @@ export default function KlossGame() {
     return () => clearTimeout(t)
   }, [result, nextLevel, restart])
 
-  const jumpTo = useCallback(
-    (i: number) => {
-      if (i > unlocked) return
-      setResult(null)
-      setAttempt((a) => a + 1)
-      setLevelIdx(i)
-    },
-    [unlocked],
-  )
-
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-white" onPointerDown={() => unlockAudio()}>
       <div className="absolute inset-0" key={`${levelIdx}:${attempt}`}>
         <Scene level={level} onHud={setHud} onWin={onWin} onLose={onLose} />
-      </div>
-
-      {/* level dots – tap the current one to replay it */}
-      <div className="absolute left-4 top-1/2 flex -translate-y-1/2 flex-col items-center gap-2 opacity-40 transition-opacity duration-300 hover:opacity-90">
-        {LEVELS.map((l, i) => (
-          <button
-            key={l.id}
-            aria-label={`level ${i + 1}`}
-            onClick={() => jumpTo(i)}
-            disabled={i > unlocked}
-            className="h-2.5 w-2.5 rounded-full transition-all"
-            style={{
-              backgroundColor: i === levelIdx ? "#2b2620" : i <= unlocked ? "#a8a29a" : "#e4e1db",
-              transform: i === levelIdx ? "scale(1.3)" : "scale(1)",
-            }}
-          />
-        ))}
       </div>
 
       {/* a quiet white breath between levels */}
