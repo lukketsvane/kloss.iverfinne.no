@@ -8,7 +8,7 @@ import dynamic from "next/dynamic"
 
 import { LEVELS } from "@/lib/levels"
 import { loadProgress, saveProgress } from "@/lib/progression"
-import { unlockAudio } from "@/lib/impact-sound"
+import { playTone, unlockAudio } from "@/lib/impact-sound"
 import type { HudState } from "@/components/scene"
 
 const Scene = dynamic(() => import("@/components/scene"), { ssr: false })
@@ -34,6 +34,10 @@ export default function KlossGame() {
   const onWin = useCallback(
     (stars: number) => {
       setResult({ kind: "win", stars })
+      // a small wooden victory chime
+      playTone(523.25, 0.7)
+      setTimeout(() => playTone(659.25, 0.7), 140)
+      setTimeout(() => playTone(783.99, 0.8), 280)
       const p = loadProgress()
       const next = {
         unlocked: Math.max(p.unlocked, Math.min(levelIdx + 1, LEVELS.length - 1)),

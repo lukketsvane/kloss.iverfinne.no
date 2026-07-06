@@ -1,7 +1,7 @@
 "use client"
 
-// The whole 3D game: the kl.oss.ete room (beige floor, warm key light, same
-// post-FX), a wooden slingshot, the five painted blocks as ammo — each with a
+// The whole 3D game: a white-studio stage with kl.oss.ete's post-FX stack, a
+// wooden slingshot, the five painted blocks as ammo — each with a
 // tap-activated mid-flight power — and unpainted wooden structures holding the
 // knock-down knots.
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -809,10 +809,12 @@ function GameWorld({ level, onHud, onWin, onLose }: SceneProps) {
 
   /* ---- per-frame game loop -------------------------------------------- */
   useFrame((state, dt) => {
-    // seat the held block at anchor + pull, ease the visual
+    // seat the held block at anchor + pull, ease the visual; a gentle idle
+    // bob invites the grab without any UI saying so
     const g = heldGroup.current
     if (g) {
       const target = ANCHOR.clone().add(pull.current)
+      if (!aiming.current) target.y += Math.sin(state.clock.elapsedTime * 1.7) * 0.07
       g.position.lerp(target, 1 - Math.exp(-18 * dt))
       g.visible = !!heldBlock
     }
@@ -894,10 +896,20 @@ function GameWorld({ level, onHud, onWin, onLose }: SceneProps) {
       followRef.current = null
     }
 
-    // out of shots, knots still standing → defeat
+    // out of shots, knots still standing → defeat, but only once everything
+    // has settled (a slowly toppling tower can still win after the last shot)
     if (!endedRef.current && !flyingRef.current && shotIdxRef.current >= queue.length && knotsAliveRef.current.some(Boolean)) {
-      loseTime.current += dt
-      if (loseTime.current > 2.0) {
+      let stirring = false
+      knotsAliveRef.current.forEach((alive, i) => {
+        if (!alive || stirring) return
+        const rb = bodies.current.get(`knot-${i}`)
+        if (rb && rb.isValid()) {
+          const v = rb.linvel()
+          if (Math.hypot(v.x, v.y, v.z) > 0.5) stirring = true
+        }
+      })
+      loseTime.current = stirring ? 0 : loseTime.current + dt
+      if (loseTime.current > 2.2) {
         endedRef.current = true
         onLose()
       }
